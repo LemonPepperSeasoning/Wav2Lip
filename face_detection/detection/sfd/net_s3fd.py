@@ -21,6 +21,7 @@ class L2Norm(nn.Module):
 
 class s3fd(nn.Module):
     def __init__(self):
+        print("s3fd_1")
         super(s3fd, self).__init__()
         self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
@@ -66,6 +67,7 @@ class s3fd(nn.Module):
         self.conv6_2_mbox_loc = nn.Conv2d(512, 4, kernel_size=3, stride=1, padding=1)
         self.conv7_2_mbox_conf = nn.Conv2d(256, 2, kernel_size=3, stride=1, padding=1)
         self.conv7_2_mbox_loc = nn.Conv2d(256, 4, kernel_size=3, stride=1, padding=1)
+        print("s3fd_2")
 
     def forward(self, x):
         h = F.relu(self.conv1_1(x))

@@ -17,6 +17,8 @@ from glob import glob
 import os, random, cv2, argparse
 from hparams import hparams, get_image_list
 
+import wandb
+
 parser = argparse.ArgumentParser(description='Code to train the Wav2Lip model without the visual quality discriminator')
 
 parser.add_argument("--data_root", help="Root folder of the preprocessed LRS2 dataset", required=True, type=str)
@@ -115,7 +117,7 @@ class Dataset(object):
             img_names = list(glob(join(vidname, '*.jpg')))
             if len(img_names) <= 3 * syncnet_T:
                 continue
-            
+         
             img_name = random.choice(img_names)
             wrong_img_name = random.choice(img_names)
             while wrong_img_name == img_name:
@@ -129,7 +131,7 @@ class Dataset(object):
             window = self.read_window(window_fnames)
             if window is None:
                 continue
-
+            
             wrong_window = self.read_window(wrong_window_fnames)
             if wrong_window is None:
                 continue
@@ -202,10 +204,17 @@ def train(device, model, train_data_loader, test_data_loader, optimizer,
 
     global global_step, global_epoch
     resumed_step = global_step
+
  
     while global_epoch < nepochs:
         print('Starting Epoch: {}'.format(global_epoch))
         running_sync_loss, running_l1_loss = 0., 0.
+
+        #### MINE ####
+        n_steps_per_epoch = len(train_data_loader)
+        #### END  ####
+
+
         prog_bar = tqdm(enumerate(train_data_loader))
         for step, (x, indiv_mels, mel, gt) in prog_bar:
             model.train()
@@ -216,8 +225,8 @@ def train(device, model, train_data_loader, test_data_loader, optimizer,
             mel = mel.to(device)
             indiv_mels = indiv_mels.to(device)
             gt = gt.to(device)
-
             g = model(indiv_mels, x)
+
 
             if hparams.syncnet_wt > 0.:
                 sync_loss = get_sync_loss(mel, g)
@@ -246,15 +255,34 @@ def train(device, model, train_data_loader, test_data_loader, optimizer,
                 save_checkpoint(
                     model, optimizer, global_step, checkpoint_dir, global_epoch)
 
+            #### MINE ####
+            metrics = { "train/l1_loss": running_l1_loss / (step + 1),
+                        "train/sync_loss": running_sync_loss / (step + 1),
+                       "train/epoch": (step + 1 + (n_steps_per_epoch * global_epoch)) / n_steps_per_epoch, 
+                    }
+            #### END ####
+
             if global_step == 1 or global_step % hparams.eval_interval == 0:
                 with torch.no_grad():
                     average_sync_loss = eval_model(test_data_loader, global_step, device, model, checkpoint_dir)
+
+                    #### MINE ####
+                    val_metrics = {"val/average_sync_loss": average_sync_loss}
+                    wandb.log({**metrics, **val_metrics})
+                    #### END ####
 
                     if average_sync_loss < .75:
                         hparams.set_hparam('syncnet_wt', 0.01) # without image GAN a lesser weight is sufficient
 
             prog_bar.set_description('L1: {}, Sync Loss: {}'.format(running_l1_loss / (step + 1),
                                                                     running_sync_loss / (step + 1)))
+
+            
+            #### MINE ####
+            if step + 1 < n_steps_per_epoch:
+                # 🐝 Log train metrics to wandb 
+                wandb.log(metrics)
+            #### END  ####
 
         global_epoch += 1
         
@@ -366,6 +394,19 @@ if __name__ == "__main__":
 
     if not os.path.exists(checkpoint_dir):
         os.mkdir(checkpoint_dir)
+
+    """
+    My wandb code
+    """
+    wandb.init(
+        project="wav2lip_voxceleb2_mini",
+        entity="talkingfacegen",
+        config={
+            "nepochs": 1000,
+            "batch_size": 16,
+            "initial_learning_rate": 1e-4,
+            "lr": 1e-4,
+            })
 
     # Train!
     train(device, model, train_data_loader, test_data_loader, optimizer,

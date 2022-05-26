@@ -46,20 +46,25 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 class FaceAlignment:
     def __init__(self, landmarks_type, network_size=NetworkSize.LARGE,
                  device='cuda', flip_input=False, face_detector='sfd', verbose=False):
+        print("Init FaceAlignment")
         self.device = device
         self.flip_input = flip_input
         self.landmarks_type = landmarks_type
         self.verbose = verbose
 
         network_size = int(network_size)
-
+        
         if 'cuda' in device:
             torch.backends.cudnn.benchmark = True
 
+        print("importing face_detection.detection")
         # Get the face detector
         face_detector_module = __import__('face_detection.detection.' + face_detector,
                                           globals(), locals(), [face_detector], 0)
+        
+        print("calling FaceDetector")                                  
         self.face_detector = face_detector_module.FaceDetector(device=device, verbose=verbose)
+        print("Done Init FaceAlignment")
 
     def get_detections_for_batch(self, images):
         images = images[..., ::-1]

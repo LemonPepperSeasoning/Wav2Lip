@@ -14,3 +14,9 @@ evaluation/test_filelists/lr*.txt
 *.gif
 *.webm
 *.mp3
+wandb/
+
+voxceleb_preprocessed_5/
+dataset2/
+expert/
+checkpoints/

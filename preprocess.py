@@ -27,13 +27,19 @@ parser.add_argument('--batch_size', help='Single GPU Face detection batch size',
 parser.add_argument("--data_root", help="Root folder of the LRS2 dataset", required=True)
 parser.add_argument("--preprocessed_root", help="Root folder of the preprocessed dataset", required=True)
 
+
 args = parser.parse_args()
+
+print("Importing Face detection!")
+
+# fa_0 =face_detection.FaceAlignment(face_detection.LandmarksType._2D, flip_input=False, device='cuda:{}'.format(0))
 
 fa = [face_detection.FaceAlignment(face_detection.LandmarksType._2D, flip_input=False, 
 									device='cuda:{}'.format(id)) for id in range(args.ngpu)]
-
+print("HERE_2!")
 template = 'ffmpeg -loglevel panic -y -i {} -strict -2 {}'
 # template2 = 'ffmpeg -hide_banner -loglevel panic -threads 1 -y -i {} -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 {}'
+
 
 def process_video_file(vfile, args, gpu_id):
 	video_stream = cv2.VideoCapture(vfile)
@@ -53,18 +59,38 @@ def process_video_file(vfile, args, gpu_id):
 	os.makedirs(fulldir, exist_ok=True)
 
 	batches = [frames[i:i + args.batch_size] for i in range(0, len(frames), args.batch_size)]
-
 	i = -1
 	for fb in batches:
 		preds = fa[gpu_id].get_detections_for_batch(np.asarray(fb))
-
+		# preds = fa_0.get_detections_for_batch(np.asarray(fb))
+		# print(f"len of fb: {len(fb)}")
+		
 		for j, f in enumerate(preds):
 			i += 1
-			if f is None:
-				continue
-
 			x1, y1, x2, y2 = f
 			cv2.imwrite(path.join(fulldir, '{}.jpg'.format(i)), fb[j][y1:y2, x1:x2])
+
+def process_video_file_2(vfile, args, gpu_id):
+	vidname = os.path.basename(vfile).split('.')[0]
+	dirname = vfile.split('/')[-2]
+
+	fulldir = path.join(args.preprocessed_root, dirname, vidname)
+	os.makedirs(fulldir, exist_ok=True)
+
+	# Opens the Video file
+	cap= cv2.VideoCapture(vfile)
+	i=0
+	while(cap.isOpened()):
+		ret, frame = cap.read()
+		if ret == False:
+			break
+		cv2.imwrite(path.join(fulldir, '{}.jpg'.format(i)),frame)
+		i+=1
+
+	cap.release()
+	cv2.destroyAllWindows()
+
+
 
 def process_audio_file(vfile, args):
 	vidname = os.path.basename(vfile).split('.')[0]
@@ -92,7 +118,7 @@ def main(args):
 	print('Started processing for {} with {} GPUs'.format(args.data_root, args.ngpu))
 
 	filelist = glob(path.join(args.data_root, '*/*.mp4'))
-
+	print(filelist)
 	jobs = [(vfile, args, i%args.ngpu) for i, vfile in enumerate(filelist)]
 	p = ThreadPoolExecutor(args.ngpu)
 	futures = [p.submit(mp_handler, j) for j in jobs]
@@ -101,6 +127,7 @@ def main(args):
 	print('Dumping audios...')
 
 	for vfile in tqdm(filelist):
+		print(vfile)
 		try:
 			process_audio_file(vfile, args)
 		except KeyboardInterrupt:
