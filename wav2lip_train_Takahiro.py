@@ -212,11 +212,13 @@ def train(device, model, train_data_loader, test_data_loader, optimizer,
 
         #### MINE ####
         n_steps_per_epoch = len(train_data_loader)
+        print(f"NUM SAMPLE IN TRAIN_SET: {n_steps_per_epoch}")
         #### END  ####
 
 
         prog_bar = tqdm(enumerate(train_data_loader))
         for step, (x, indiv_mels, mel, gt) in prog_bar:
+
             model.train()
             optimizer.zero_grad()
 
@@ -255,6 +257,10 @@ def train(device, model, train_data_loader, test_data_loader, optimizer,
                 save_checkpoint(
                     model, optimizer, global_step, checkpoint_dir, global_epoch)
 
+
+            prog_bar.set_description('L1: {}, Sync Loss: {}'.format(running_l1_loss / (step + 1),
+                                                                    running_sync_loss / (step + 1)))
+
             #### MINE ####
             metrics = { 
                         "train/loss": loss,
@@ -264,71 +270,35 @@ def train(device, model, train_data_loader, test_data_loader, optimizer,
                         "train/running_sync_loss": running_sync_loss / (step + 1),
                        "train/epoch": (step + 1 + (n_steps_per_epoch * global_epoch)) / n_steps_per_epoch, 
                     }
-            #### END ####
-
-            if global_step == 1 or global_step % hparams.eval_interval == 0:
-                with torch.no_grad():
-                    average_sync_loss, averaged_recon_loss = eval_model(test_data_loader, global_step, device, model, checkpoint_dir)
-
-                    #### MINE ####
-                    val_metrics = {"val/average_sync_loss": average_sync_loss,
-                                    "val/averaged_recon_loss": averaged_recon_loss}
-                    wandb.log({**metrics, **val_metrics})
-                    #### END ####
-
-                    if average_sync_loss < .75:
-                        hparams.set_hparam('syncnet_wt', 0.01) # without image GAN a lesser weight is sufficient
-
-            prog_bar.set_description('L1: {}, Sync Loss: {}'.format(running_l1_loss / (step + 1),
-                                                                    running_sync_loss / (step + 1)))
-
             
-            #### MINE ####
             if step + 1 < n_steps_per_epoch:
                 # 🐝 Log train metrics to wandb 
                 wandb.log(metrics)
-            #### END  ####
+            #### END ####
+        
+        ## Validate Epoch
+        with torch.no_grad():
+            average_sync_loss, averaged_recon_loss = eval_model_2(test_data_loader, global_step, device, model, checkpoint_dir)
 
+            #### MINE ####
+            val_metrics = {"val/average_sync_loss": average_sync_loss,
+                            "val/averaged_recon_loss": averaged_recon_loss}
+            wandb.log({**metrics, **val_metrics})
+            #### END ####
+
+            if global_epoch > 100:
+                hparams.set_hparam('syncnet_wt', 0.01) # without image GAN a lesser weight is sufficient
+
+        # wandb.log(metrics)
         global_epoch += 1
         
 
-def eval_model(test_data_loader, global_step, device, model, checkpoint_dir):
-    eval_steps = 700
-    print('Evaluating for {} steps'.format(eval_steps))
-    sync_losses, recon_losses = [], []
-    step = 0
-    while 1:
-        for x, indiv_mels, mel, gt in test_data_loader:
-            step += 1
-            model.eval()
-
-            # Move data to CUDA device
-            x = x.to(device)
-            gt = gt.to(device)
-            indiv_mels = indiv_mels.to(device)
-            mel = mel.to(device)
-
-            g = model(indiv_mels, x)
-
-            sync_loss = get_sync_loss(mel, g)
-            l1loss = recon_loss(g, gt)
-
-            sync_losses.append(sync_loss.item())
-            recon_losses.append(l1loss.item())
-
-            if step > eval_steps: 
-                averaged_sync_loss = sum(sync_losses) / len(sync_losses)
-                averaged_recon_loss = sum(recon_losses) / len(recon_losses)
-
-                print('L1: {}, Sync loss: {}'.format(averaged_recon_loss, averaged_sync_loss))
-
-                return averaged_sync_loss,averaged_recon_loss
 
 def eval_model_2(test_data_loader, global_step, device, model, checkpoint_dir):    
     # print('Evaluating for {} steps'.format(len(test_data_loader)))
     sync_losses, recon_losses = [], []
     for x, indiv_mels, mel, gt in test_data_loader:
-        step += 1
+        # step += 1
         model.eval()
 
         # Move data to CUDA device
@@ -348,7 +318,7 @@ def eval_model_2(test_data_loader, global_step, device, model, checkpoint_dir):
     averaged_sync_loss = sum(sync_losses) / len(sync_losses)
     averaged_recon_loss = sum(recon_losses) / len(recon_losses)
 
-    print(f'Val on {len(sync_losses)} samples: [L1: {averaged_recon_loss}, Sync loss: {averaged_sync_loss}]')
+    print(f'Val on N={len(sync_losses)} samples: [L1: {averaged_recon_loss}, Sync loss: {averaged_sync_loss}]')
     return averaged_sync_loss,averaged_recon_loss
 
 
