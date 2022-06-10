@@ -252,7 +252,7 @@ def train(device, model, train_data_loader, test_data_loader, optimizer,
                 running_sync_loss += sync_loss.item()
             else:
                 running_sync_loss += 0.
-
+            
             if global_step == 1 or global_step % checkpoint_interval == 0:
                 save_checkpoint(
                     model, optimizer, global_step, checkpoint_dir, global_epoch)

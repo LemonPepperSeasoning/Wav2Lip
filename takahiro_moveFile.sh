@@ -1,5 +1,14 @@
 #! /bin/bash
 
+
+#### 
+#
+# Used to restructure files for the test-sample voxceleb dataset. 
+# Hard copies
+#
+####
+
+
 mkdir -p dataset2/test
 
 files=`ls dataset2/mp4 | grep id`
