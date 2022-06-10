@@ -116,8 +116,10 @@ def mp_handler(job):
 		
 def main(args):
 	print('Started processing for {} with {} GPUs'.format(args.data_root, args.ngpu))
+	print(glob(args.data_root))
 
-	filelist = glob(path.join(args.data_root, '*/*.mp4'))
+	print( path.join(args.data_root, '*/*.mp4'))
+	filelist = glob(path.join(args.data_root, '*/*.mp4'), recursive=True)
 	print(filelist)
 	jobs = [(vfile, args, i%args.ngpu) for i, vfile in enumerate(filelist)]
 	p = ThreadPoolExecutor(args.ngpu)

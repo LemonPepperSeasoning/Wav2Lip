@@ -25,3 +25,7 @@ ctrl \
 python wav2lip_train_Takahiro.py --data_root voxceleb_preprocessed_5/ --checkpoint_dir checkpoints3 --syncnet_checkpoint_path expert/lipsync_expert.pth
 ```
 
+
+python3 preprocess.py --data_root /home/myuser1/workspace/hard_drive_mount_location/p4p-g24-2022/VoxCeleb2-Dataset/raw_dataset/test --preprocessed_root /home/myuser1/workspace/hard_drive_mount_location/p4p-g24-2022/VoxCeleb2-Dataset/preprocessed_dataset/Wav2Lip_Preprocess --batch_size 8
+
+python3 preprocess.py --data_root hard_drive_mount_dir/p4p-g24-2022/VoxCeleb2-Dataset/raw_dataset/test --preprocessed_root hard_drive_mount_dir/p4p-g24-2022/VoxCeleb2-Dataset/preprocessed_dataset/Wav2Lip_Preprocess --batch_size 8
